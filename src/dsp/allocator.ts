@@ -13,6 +13,17 @@ export const EnvTrigger = { Lfo: 0, Gate: 1, Trig: 2 } as const
 const UNISON_DETUNE = [-0.08, 0.08, -0.03, 0.03]
 
 /**
+ * Gain de sommation des voix avant la saturation du master.
+ * Le même pour Poly, Mono et Chord : une note seule a le même niveau dans les trois modes,
+ * et les accords sont plus forts, saturés en douceur par le tanh du master comme sur une machine analogique.
+ * L'Unison empile toujours 4 voix sur chaque note : atténué pour garder son niveau d'avant face au Mono.
+ */
+const OUTPUT_GAIN = 0.7
+const MODE_GAIN = [OUTPUT_GAIN, OUTPUT_GAIN, OUTPUT_GAIN * 0.45, OUTPUT_GAIN]
+
+export const voiceModeGain = (mode: number) => MODE_GAIN[Math.round(mode)] ?? OUTPUT_GAIN
+
+/**
  * Répartit les notes sur le pool de voix selon le mode (manuel S-1 v1.02, section Controller).
  * - Poly : une voix par note, vol de la voix la plus ancienne quand tout est occupé.
  * - Mono / Unison / Chord : pile de notes. Priorité Last ou Low ; avec ENV TRG = Trig, la dernière note gagne toujours.

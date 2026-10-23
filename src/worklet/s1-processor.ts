@@ -1,4 +1,4 @@
-import { EnvTrigger, VoiceAllocator, VoiceMode } from '../dsp/allocator'
+import { EnvTrigger, VoiceAllocator, voiceModeGain } from '../dsp/allocator'
 import { Arpeggiator } from '../dsp/arpeggiator'
 import { Lfo } from '../dsp/lfo'
 import { Riser } from '../dsp/riser'
@@ -22,8 +22,6 @@ import { createWaveData, Voice } from '../dsp/voice'
 import { PROCESSOR_NAME, type EngineMessage, type ProcessorMessage } from './messages'
 
 const VOICE_COUNT = 4
-// Gain de sommation par mode : plusieurs voix ensemble ne doivent pas saturer le master
-const MODE_GAIN = [0.55, 1, 0.45, 0.55]
 // Les contrôleurs MIDI arrivent par paliers : lissés pour éviter les escaliers audibles
 const CONTROLLER_SMOOTH = 0.01
 
@@ -229,7 +227,7 @@ class S1Processor extends AudioWorkletProcessor {
       Math.round(p.lfoSync) === 1 ? lfoSyncHz(mapTempo(p.tempo), p.lfoNote) : mapLfoRate(p.lfoRate, Math.round(p.lfoMode) === 1)
     const wave = Math.round(p.lfoWave)
     const lfoTrig = this.allocator.envTrigger === EnvTrigger.Lfo
-    const gain = MODE_GAIN[Math.round(p.voiceMode)] ?? MODE_GAIN[VoiceMode.Poly]
+    const gain = voiceModeGain(p.voiceMode)
     const bendSemis = mapOscBend(p.oscBendSens)
     const bendOct = mapFilterBend(p.filterBendSens)
     const modSemis = mapLfoPitch(p.modDepth)

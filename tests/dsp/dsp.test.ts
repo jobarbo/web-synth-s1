@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { EnvTrigger, NotePriority, PortaMode, VoiceAllocator, VoiceMode } from '../../src/dsp/allocator'
+import { EnvTrigger, NotePriority, PortaMode, VoiceAllocator, VoiceMode, voiceModeGain } from '../../src/dsp/allocator'
+import { fastTanh } from '../../src/dsp/math'
 import { Envelope } from '../../src/dsp/envelope'
 import { Lfo, LfoWave } from '../../src/dsp/lfo'
 import { LadderFilter } from '../../src/dsp/filter'
@@ -378,5 +379,35 @@ describe('Temps d’enveloppe mesurés sur machine', () => {
     for (let i = 0; i < 10; i++) env.next()
     for (let i = 0; i < SR * decay; i++) env.next()
     expect(env.value).toBeCloseTo(0.001, 3)
+  })
+})
+
+describe('Niveau de sortie par mode de voix', () => {
+  /** Rend les notes à travers l'allocateur, puis le gain de mode et la saturation du master comme le processeur. */
+  function renderMode(mode: number, notes: number[]) {
+    const p = defaultParams()
+    const { a, voices } = allocator(mode)
+    for (const v of voices) v.updateBlock(p)
+    for (const n of notes) a.noteOn(n)
+    const out: number[] = []
+    for (let i = 0; i < SR / 2; i++) {
+      let sum = 0
+      for (const v of voices) if (v.active) sum += v.render(p, 0)
+      out.push(fastTanh(sum * voiceModeGain(mode)))
+    }
+    return out
+  }
+
+  it('une note seule a le même niveau en Poly, Mono et Chord', () => {
+    const mono = rms(renderMode(VoiceMode.Mono, [60]))
+    expect(rms(renderMode(VoiceMode.Poly, [60]))).toBeCloseTo(mono, 6)
+    expect(voiceModeGain(VoiceMode.Chord)).toBe(voiceModeGain(VoiceMode.Mono))
+  })
+
+  it('un accord en Poly est plus fort qu’une note seule, sans dépasser ±1', () => {
+    const single = renderMode(VoiceMode.Poly, [60])
+    const chord = renderMode(VoiceMode.Poly, [60, 64, 67, 71])
+    expect(rms(chord)).toBeGreaterThan(rms(single))
+    expect(Math.max(...chord.map(Math.abs))).toBeLessThanOrEqual(1)
   })
 })
