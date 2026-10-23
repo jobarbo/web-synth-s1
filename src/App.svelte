@@ -3,6 +3,7 @@
   import { Engine } from './audio/engine'
   import { attachKeyboard, MAX_OCTAVE, MIN_OCTAVE } from './audio/keyboard'
   import type { MidiEvent } from './audio/midi'
+  import { exportPrm, importPrm } from './audio/prm'
   import { CHOP_NONE, INIT_DRAW_FORM } from './dsp/draw'
   import { defaultParams, DMotionTarget, PARAMS, type ParamId, type Section } from './dsp/params'
   import { BEND_MOTION, emptyMotionValues, emptyPattern, MAX_MOTIONS, MAX_NOTES_PER_STEP } from './dsp/sequencer'
@@ -10,6 +11,7 @@
   import MidiBar from './ui/MidiBar.svelte'
   import Panel from './ui/Panel.svelte'
   import PianoKeyboard from './ui/PianoKeyboard.svelte'
+  import PrmBar from './ui/PrmBar.svelte'
   import Scope from './ui/Scope.svelte'
   import Sequencer from './ui/Sequencer.svelte'
 
@@ -132,6 +134,31 @@
     chopMasks = masks
     engine?.setWave(form, masks)
   }
+
+  /** Dernier .PRM importé : base de l'export, pour conserver ce que l'app ne modélise pas. */
+  let prmBase: string | undefined
+
+  function importPatch(text: string) {
+    const r = importPrm(text)
+    for (const [id, v] of Object.entries(r.values)) update(id as ParamId, v)
+    pattern = r.pattern
+    setWave(r.drawForm, r.chopMasks)
+    setLoop([])
+    selectedStep = -1
+    prmBase = text
+    return r.warnings
+  }
+
+  const exportPatch = () =>
+    exportPrm(
+      {
+        values: $state.snapshot(values),
+        pattern: $state.snapshot(pattern),
+        drawForm: $state.snapshot(drawForm),
+        chopMasks: $state.snapshot(chopMasks),
+      },
+      prmBase,
+    )
 
   function applyPanExpression() {
     engine?.setPan(Math.max(-1, Math.min(1, midiPan + dm.pan)))
@@ -286,6 +313,7 @@
 <main>
   <header>
     <h1>S1 Web <span>prototype phase 6</span></h1>
+    <PrmBar onImport={importPatch} onExport={exportPatch} />
     <MidiBar onEvent={onMidi} />
     <button class="power" class:on={powered} onclick={togglePower} aria-pressed={powered}>
       {powered ? 'On' : 'Power'}

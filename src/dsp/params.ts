@@ -144,7 +144,7 @@ const SHIFT_STEPS = 25
 export const LOW_CUT_LABELS = ['Flat', '20', '25', '31.5', '40', '50', '63', '80', '100', '125', '160', '200', '250', '315', '400', '500', '630', '800']
 export const HIGH_CUT_LABELS = ['630', '800', '1k', '1.25k', '1.6k', '2k', '2.5k', '3.15k', '4k', '5k', '6.3k', '8k', '10k', '12.5k', 'Flat']
 // Dans le .PRM, la liste High Cut commence par un « Flat » supplémentaire : index .PRM = index ci-dessus + 1
-const highCutFromPrm = (raw: number) => (raw === 0 ? HIGH_CUT_LABELS.length - 1 : raw - 1)
+export const highCutFromPrm = (raw: number) => (raw === 0 ? HIGH_CUT_LABELS.length - 1 : raw - 1)
 
 /** Valeurs de note du Delay Sync (manuel EFX), ordre du .PRM : du plus court au plus long. Durées en noires. */
 export const DELAY_NOTES: { label: string; beats: number }[] = [

@@ -27,7 +27,8 @@ Phases 0 à 5b terminées : voix soustractive, panneau en sliders, tiroirs (Bend
 polyphonie 4 voix, LFO, portamento, effets, Web MIDI, séquenceur 64 pas (pas à pas et temps réel), motion recording,
 arpégiateur, synchro tempo du delay et du LFO, boucle de pas, transposition, probabilité globale, métronome et décompte,
 OSC Draw, OSC Chop, Riser, D-MOTION (pad XY et inclinaison du téléphone), bruit Pink/White, Fine Tune, pan et expression MIDI.
-À venir : 7 (patterns, .PRM, partage, déploiement).
+Import / export .PRM.
+À venir : 7 (patterns, partage, déploiement).
 
 ## Séquenceur
 
@@ -40,6 +41,22 @@ OSC Draw, OSC Chop, Riser, D-MOTION (pad XY et inclinaison du téléphone), brui
 - Loop : clic sur les pas à rejouer en boucle (plusieurs possibles, non contigus).
 - Pas sélectionné : Copier, Coller, Insérer (les suivants reculent), Doubler le pattern.
 - Par pas : gate, vélocité, probabilité, sub-steps (1 à 4 parties), tie. Gate 100 = liaison vers le pas suivant.
+
+## Fichiers .PRM (backup du S-1)
+
+Boutons « Importer .PRM » et « Exporter .PRM » : un fichier = un pattern du S-1 (son, séquence, motions, Draw, Chop).
+Le fichier exporté reprend le nom du fichier importé (`S1_PTN1-01.PRM` par défaut), à replacer dans le dossier de backup
+de la machine avant une restauration. Faire une sauvegarde complète du S-1 avant de restaurer un fichier exporté.
+
+- Encodages des paramètres : doc de S1Utility (`docs/PRM_FORMAT.md`), vérifiés sur des backups réels.
+- Motions : `STEP_MOTION <pas><sous-position>` (64 pas × 8 sous-positions, valeurs CC). L'app ne garde qu'une valeur par pas
+  (la première) ; les sous-positions d'origine sont réécrites telles quelles tant que le pas n'est pas modifié.
+- L'export part du dernier fichier importé : les clés inconnues (`DELAY_SW`, `PRM1..11`, `SUBSTEP`…) et les valeurs inchangées
+  sont conservées. Testé : import puis export redonne les 77 backups de référence à l'octet près.
+- Non vérifié sur machine : encodage du pitch bend en motion (jamais observé actif), sub-steps et tie (encodage inconnu,
+  signalés à l'import et à l'export).
+- Absents du .PRM, donc non sauvegardés : Priority, Arp On, LFO Note, Delay Level Mode, métronome, décompte, Position du Riser,
+  probabilité globale.
 
 ## MIDI
 

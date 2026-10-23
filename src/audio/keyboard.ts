@@ -12,9 +12,11 @@ export interface KeyboardHandlers {
   setOctave(octave: number): void
 }
 
-export const MIN_OCTAVE = -3
-export const MAX_OCTAVE = 3
-export const BASE_NOTE = 48
+// Oct 0 = C4 (60), comme les pads du S-1 à l'octave par défaut (comparaison à l'oreille avec la machine,
+// et notes des backups .PRM centrées sur C4-C5). Plage jouable inchangée : notes 12 à 108.
+export const MIN_OCTAVE = -4
+export const MAX_OCTAVE = 2
+export const BASE_NOTE = 60
 
 /**
  * Clavier d'ordinateur → notes MIDI. Z / X changent d'octave.
