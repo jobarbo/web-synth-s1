@@ -1,0 +1,56 @@
+:root {
+  --bg: #f4f3f0;
+  --surface: #ffffff;
+  --border: #dcd9d2;
+  --text: #1d1b19;
+  --text-muted: #6f6a63;
+  --accent: #d6402b;
+  --on-accent: #ffffff;
+  --danger: #b3261e;
+  --scope-bg: #1b1d1f;
+  --scope-line: #7ee2a8;
+  --focus: #6aa8ff;
+
+  /* Panneau de l'instrument : sombre dans les deux thèmes, comme une façade de machine */
+  --panel-bg: #232528;
+  --panel-border: #34373b;
+  --panel-highlight: rgb(255 255 255 / 0.05);
+  --panel-text: #e9e7e3;
+  --panel-text-muted: #9b978f;
+  --panel-tick: #45484d;
+  --panel-track: #121315;
+  --panel-cap: #d9d6d0;
+  --panel-cap-hover: #f2f0ec;
+  --panel-cap-edge: #8f8b84;
+  --panel-hover: rgb(255 255 255 / 0.06);
+  --panel-led-off: #3d2a27;
+  --key-white: #ece9e3;
+  --key-black: #17181a;
+  --key-edge: #8f8b84;
+  --key-label: #77736c;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 16px/1.45 var(--sans);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141516;
+    --surface: #1e2022;
+    --border: #33363a;
+    --text: #ecebe8;
+    --text-muted: #9a978f;
+    --accent: #ef5a43;
+    --danger: #ff8a80;
+    --scope-bg: #0c0d0e;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
