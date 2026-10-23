@@ -20,11 +20,17 @@
     { id: 'env', title: 'Env' },
     { id: 'amp', title: 'Amp' },
     { id: 'chord', title: 'Chord' },
+    { id: 'tb303', title: '303' },
   ]
 
-  // Sur la machine, les réglages d'accord sont dans un menu : on ne les montre qu'en mode Chord
+  // Sur la machine, les réglages d'accord sont dans un menu : on ne les montre qu'en mode Chord.
+  // L'accent n'existe que pour le moteur 303.
   const visibleSections = $derived(
-    SECTIONS.filter((s) => s.id !== 'chord' || Math.round(values.voiceMode) === VoiceMode.Chord),
+    SECTIONS.filter(
+      (s) =>
+        (s.id !== 'chord' || Math.round(values.voiceMode) === VoiceMode.Chord) &&
+        (s.id !== 'tb303' || Math.round(values.engine) === 1),
+    ),
   )
 
   const bySection = (id: Section) => PARAMS.filter((p) => p.section === id)

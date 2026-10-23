@@ -33,6 +33,7 @@ export type Section =
   | 'chorus'
   | 'delay'
   | 'reverb'
+  | 'tb303'
 
 /** Sections traitées par la chaîne d'effets (thread principal), pas par le worklet. */
 export const FX_SECTIONS: ReadonlySet<Section> = new Set(['chorus', 'delay', 'reverb'])
@@ -50,6 +51,8 @@ export interface ParamDef {
 }
 
 export type ParamId =
+  | 'engine'
+  | 'accent'
   | 'voiceMode'
   | 'notePriority'
   | 'portaMode'
@@ -223,6 +226,10 @@ export const delaySyncTime = (tempo: number, noteIndex: number) =>
 
 export const PARAMS: ParamDef[] = [
   // Valeurs INIT entre parenthèses : clé .PRM = valeur brute
+  // Moteur de synthèse : S-1 (4 voix) ou 303 (Open303, monophonique). Propre à l'app, absent du .PRM.
+  { id: 'engine', label: 'Engine', section: 'voice', default: 0, steps: 2, stepLabels: ['S-1', '303'] },
+  // Accent du moteur 303 : appliqué aux pas du séquenceur dont la vélocité dépasse 100
+  { id: 'accent', label: 'Accent', section: 'tb303', default: 0.5 },
   { id: 'voiceMode', label: 'Mode', section: 'voice', default: 0, steps: 4, stepLabels: ['Poly', 'Mono', 'Unison', 'Chord'] }, // ASSIGN_MODE = Poly
   { id: 'notePriority', label: 'Priority', section: 'voice', default: 0, steps: 2, stepLabels: ['Last', 'Low'] }, // absent du .PRM
   { id: 'portaMode', label: 'Porta', section: 'voice', default: 0, steps: 3, stepLabels: ['Off', 'On', 'Auto'] }, // PORTAMENTO_MODE = Off

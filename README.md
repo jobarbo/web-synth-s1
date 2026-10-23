@@ -42,6 +42,20 @@ Import / export .PRM.
 - Pas sélectionné : Copier, Coller, Insérer (les suivants reculent), Doubler le pattern.
 - Par pas : gate, vélocité, probabilité, sub-steps (1 à 4 parties), tie. Gate 100 = liaison vers le pas suivant.
 
+## Moteur 303
+
+Sélecteur « Engine » (section Voice) : S-1 (4 voix) ou 303, port en TypeScript d'[Open303](https://github.com/RobinSchmidt/Open303)
+(Robin Schmidt, licence MIT) dans `src/dsp/tb303.ts` : filtre TB_303 suréchantillonné 4x, enveloppe principale, accent, slide.
+
+- Monophonique. Une note jouée pendant qu'une autre est tenue glisse vers elle (slide, ~60 ms) sans redéclencher les enveloppes ;
+  dans le séquenceur, un gate à 100 vers une autre note produit le slide.
+- Accent : pas du séquenceur avec une vélocité supérieure à 100 ; dosage par le slider Accent (section 303).
+- Contrôles du panneau réutilisés : Freq (cutoff 314..2394 Hz), Reso, Env (env mod), D (decay 200..2000 ms),
+  niveaux Square / Saw du mixer (dosage de la forme d'onde), Range, Fine, Volume, bend et D-MOTION. Les autres réglages
+  du S-1 (LFO, PWM, sub, bruit, A / S / R, Draw, Chop, modes de voix) n'agissent pas sur la 303.
+- Écart avec Open303 : formes d'onde calculées (PolyBLEP) au lieu de tables mip-mappées.
+- Le moteur et l'accent ne sont pas sauvegardés dans le .PRM (absents de la machine).
+
 ## Fichiers .PRM (backup du S-1)
 
 Boutons « Importer .PRM » et « Exporter .PRM » : un fichier = un pattern du S-1 (son, séquence, motions, Draw, Chop).

@@ -109,7 +109,8 @@ export const stepSamples = (tempo: number, scale: number, sampleRate: number) =>
   ((60 / tempo) * (STEP_SCALES[scale] ?? STEP_SCALES[1]).beats * sampleRate)
 
 export interface NoteSink {
-  noteOn(note: number): void
+  /** velocity : vélocité du pas (séquenceur) ; absente pour les autres sources. */
+  noteOn(note: number, velocity?: number): void
   noteOff(note: number): void
 }
 
@@ -126,6 +127,7 @@ export interface Recorded {
 interface Pending {
   note: number
   on: boolean
+  velocity: number
   /** Échantillons restants avant l'événement. */
   remaining: number
 }
@@ -167,7 +169,7 @@ export class SequencerClock {
   // Notes enregistrées pendant ce passage : on ne les rejoue pas une 2e fois au même pas
   private readonly skip: { step: number; note: number }[] = []
   private readonly recordStart = new Map<number, { step: number; at: number }>()
-  private readonly pending: Pending[] = Array.from({ length: MAX_PENDING }, () => ({ note: 0, on: false, remaining: -1 }))
+  private readonly pending: Pending[] = Array.from({ length: MAX_PENDING }, () => ({ note: 0, on: false, velocity: 0, remaining: -1 }))
   /** Notes actuellement enclenchées par le séquenceur, pour les couper proprement. */
   private readonly sounding = new Set<number>()
   private readonly rng: Noise
@@ -226,7 +228,7 @@ export class SequencerClock {
       if (p.remaining < 0) continue
       if (p.remaining === 0) {
         p.remaining = -1
-        this.fire(p.note, p.on)
+        this.fire(p.note, p.on, p.velocity)
       } else p.remaining--
     }
     if (this.countdown <= 0) {
@@ -309,7 +311,7 @@ export class SequencerClock {
         // Note liée depuis le pas précédent : elle sonne déjà, pas de nouvelle attaque
         if (parts.length === 1 && this.continuesFromPrevious(index, n.note, played)) continue
         const duration = parts.length === 1 ? this.noteDuration(index, n) : (partLen * n.gate) / 100
-        this.schedule(played, true, at)
+        this.schedule(played, true, at, n.velocity)
         this.schedule(played, false, at + Math.max(1, Math.round(duration)))
       }
     }
@@ -362,9 +364,9 @@ export class SequencerClock {
     return prev.subSteps.length === 1 && prev.notes.some((m) => m.note === note && m.gate >= 100)
   }
 
-  private schedule(note: number, on: boolean, delay: number) {
+  private schedule(note: number, on: boolean, delay: number, velocity = 0) {
     if (delay <= 0) {
-      this.fire(note, on)
+      this.fire(note, on, velocity)
       return
     }
     for (let i = 0; i < MAX_PENDING; i++) {
@@ -372,17 +374,18 @@ export class SequencerClock {
       if (p.remaining >= 0) continue
       p.note = note
       p.on = on
+      p.velocity = velocity
       p.remaining = delay - 1
       return
     }
   }
 
-  private fire(note: number, on: boolean) {
+  private fire(note: number, on: boolean, velocity: number) {
     if (on) {
       // Même note encore enclenchée : on la relâche avant de la rejouer
       if (this.sounding.has(note)) this.sink.noteOff(note)
       this.sounding.add(note)
-      this.sink.noteOn(note)
+      this.sink.noteOn(note, velocity)
     } else if (this.sounding.has(note)) {
       this.sounding.delete(note)
       this.sink.noteOff(note)

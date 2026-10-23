@@ -1,4 +1,4 @@
-import { EnvTrigger, VoiceAllocator, voiceModeGain } from '../dsp/allocator'
+import { EnvTrigger, VoiceAllocator, VoiceMode, voiceModeGain } from '../dsp/allocator'
 import { Arpeggiator } from '../dsp/arpeggiator'
 import { Lfo } from '../dsp/lfo'
 import { Riser } from '../dsp/riser'
@@ -8,6 +8,9 @@ import {
   lfoSyncHz,
   mapChordShift,
   mapFilterBend,
+  mapFineTune,
+  mapRange,
+  mapVolume,
   mapLfoPitch,
   mapLfoRate,
   mapOscBend,
@@ -18,10 +21,17 @@ import {
   type ParamId,
 } from '../dsp/params'
 import { SequencerClock, transposed } from '../dsp/sequencer'
+import { Tb303, type Tb303Settings } from '../dsp/tb303'
 import { createWaveData, Voice } from '../dsp/voice'
 import { PROCESSOR_NAME, type EngineMessage, type ProcessorMessage } from './messages'
 
 const VOICE_COUNT = 4
+const Engine = { S1: 0, Tb303: 1 } as const
+// Niveau du moteur 303 aligné sur celui d'une voix S-1 au patch INIT (voir tests)
+const TB303_GAIN = 0.35
+// Plage des potards de la 303 (Open303) : cutoff 314..2394 Hz, decay 200..2000 ms, courbes exponentielles
+const tb303Cutoff = (v: number) => 314 * Math.pow(2394 / 314, v)
+const tb303Decay = (v: number) => 200 * Math.pow(10, v)
 // Les contrôleurs MIDI arrivent par paliers : lissés pour éviter les escaliers audibles
 const CONTROLLER_SMOOTH = 0.01
 
@@ -38,6 +48,10 @@ class S1Processor extends AudioWorkletProcessor {
   private readonly params = defaultParams()
   private readonly voices = Array.from({ length: VOICE_COUNT }, (_, i) => new Voice(sampleRate, 0x9e3779b9 + i * 7919))
   private readonly allocator = new VoiceAllocator(this.voices)
+  private readonly tb303 = new Tb303(sampleRate)
+  private readonly tbSettings: Tb303Settings = { cutoff: 1000, resonance: 0, envMod: 0, decay: 400, accent: 0.5, waveform: 1 }
+  private readonly sTbVolume = new Smoother(0, CONTROLLER_SMOOTH, sampleRate)
+  private engine: number = Engine.S1
   private readonly wave = createWaveData()
   private readonly riser = new Riser(sampleRate)
   private perfCutoff = 0
@@ -55,11 +69,11 @@ class S1Processor extends AudioWorkletProcessor {
 
   // Notes du séquenceur : directement aux voix. Notes de l'arpégiateur : marquées comme telles (règle du portamento).
   private readonly sequencer = new SequencerClock(
-    { noteOn: (n) => this.voiceOn(n, false), noteOff: (n) => this.allocator.noteOff(n) },
+    { noteOn: (n, velocity) => this.voiceOn(n, false, velocity), noteOff: (n) => this.voiceOff(n) },
     sampleRate,
   )
   private readonly arp = new Arpeggiator(
-    { noteOn: (n) => this.voiceOn(n, true), noteOff: (n) => this.allocator.noteOff(n) },
+    { noteOn: (n) => this.voiceOn(n, true), noteOff: (n) => this.voiceOff(n) },
     sampleRate,
   )
   private stepToReport = -1
@@ -88,10 +102,22 @@ class S1Processor extends AudioWorkletProcessor {
     this.port.postMessage(msg)
   }
 
-  private voiceOn(note: number, fromArp: boolean) {
+  /** velocity : vélocité du pas du séquenceur ; au-dessus de 100, la note est accentuée (moteur 303). */
+  private voiceOn(note: number, fromArp: boolean, velocity = 0) {
     // Key Trigger : le LFO repart à chaque nouvelle note
     if (Math.round(this.params.lfoKeyTrig) === 1) this.lfo.reset()
-    this.allocator.noteOn(note, fromArp)
+    if (this.engine === Engine.Tb303) this.tb303.noteOn(note, velocity > 100, this.tbSettings)
+    else this.allocator.noteOn(note, fromArp)
+  }
+
+  private voiceOff(note: number) {
+    if (this.engine === Engine.Tb303) this.tb303.noteOff(note)
+    else this.allocator.noteOff(note)
+  }
+
+  private allVoicesOff() {
+    this.allocator.allNotesOff()
+    this.tb303.allNotesOff()
   }
 
   /**
@@ -113,7 +139,7 @@ class S1Processor extends AudioWorkletProcessor {
     const played = this.liveTransposed.get(note) ?? note
     this.liveTransposed.delete(note)
     if (this.arp.on) this.arp.noteOff(played)
-    else this.allocator.noteOff(played)
+    else this.voiceOff(played)
   }
 
   private onMessage(msg: EngineMessage) {
@@ -129,7 +155,7 @@ class S1Processor extends AudioWorkletProcessor {
       case 'allNotesOff':
         this.sustained.clear()
         this.arp.reset()
-        this.allocator.allNotesOff()
+        this.allVoicesOff()
         break
       case 'setPattern':
         this.sequencer.pattern = msg.pattern
@@ -194,6 +220,22 @@ class S1Processor extends AudioWorkletProcessor {
     a.chordShift[2] = mapChordShift(p.chord4Shift)
     for (let v = 0; v < this.voices.length; v++) this.voices[v].updateBlock(p)
 
+    // Changement de moteur : les notes en cours sont coupées des deux côtés (aucune note bloquée)
+    const engine = Math.round(p.engine)
+    if (engine !== this.engine) {
+      this.arp.reset()
+      this.allVoicesOff()
+      this.engine = engine
+    }
+    const tb = this.tbSettings
+    tb.cutoff = tb303Cutoff(p.cutoff)
+    tb.resonance = p.resonance
+    tb.envMod = p.envMod
+    tb.decay = tb303Decay(p.decay)
+    tb.accent = p.accent
+    // Forme d'onde : dosage scie / carré pris sur les niveaux du mixer
+    tb.waveform = p.pulseLevel + p.sawLevel > 0 ? p.pulseLevel / (p.pulseLevel + p.sawLevel) : 1
+
     const tempo = mapTempo(p.tempo)
     const seq = this.sequencer
     seq.tempo = tempo
@@ -206,7 +248,7 @@ class S1Processor extends AudioWorkletProcessor {
     // on coupe donc tout pour ne laisser aucune note bloquée
     if (this.arp.on !== arpOn) {
       this.arp.reset()
-      this.allocator.allNotesOff()
+      this.allVoicesOff()
     }
     this.arp.on = arpOn
     this.arp.type = Math.round(p.arpType)
@@ -227,7 +269,10 @@ class S1Processor extends AudioWorkletProcessor {
       Math.round(p.lfoSync) === 1 ? lfoSyncHz(mapTempo(p.tempo), p.lfoNote) : mapLfoRate(p.lfoRate, Math.round(p.lfoMode) === 1)
     const wave = Math.round(p.lfoWave)
     const lfoTrig = this.allocator.envTrigger === EnvTrigger.Lfo
-    const gain = voiceModeGain(p.voiceMode)
+    const tb303 = this.engine === Engine.Tb303
+    const gain = voiceModeGain(tb303 ? VoiceMode.Mono : p.voiceMode)
+    const tbPitch = 12 * mapRange(p.range) + mapFineTune(p.fineTune)
+    const tbVolume = mapVolume(p.volume) * TB303_GAIN
     const bendSemis = mapOscBend(p.oscBendSens)
     const bendOct = mapFilterBend(p.filterBendSens)
     const modSemis = mapLfoPitch(p.modDepth)
@@ -245,7 +290,8 @@ class S1Processor extends AudioWorkletProcessor {
       const pitchMod = bend * bendSemis + lfo * this.sMod.next(this.modWheel) * modSemis
       const filterMod = bend * bendOct + this.perfCutoff
       let sum = 0
-      for (let v = 0; v < this.voices.length; v++) {
+      if (tb303) sum = this.tb303.render(this.tbSettings, tbPitch + pitchMod, filterMod) * this.sTbVolume.next(tbVolume)
+      else for (let v = 0; v < this.voices.length; v++) {
         const voice = this.voices[v]
         if (lfoTrig && this.lfo.wrapped) voice.retriggerEnv()
         if (voice.active) sum += voice.render(p, lfo, pitchMod, filterMod)
